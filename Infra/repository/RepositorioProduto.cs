@@ -21,5 +21,16 @@ namespace Infra.repository
             _optionsBuilder = new DbContextOptions<ContextBase>();
             _context = context;
         }
+
+        public async Task<bool> VerificarEstoqueDisponivel(int produtoId, int quantidadeSolicitada)
+        {
+            var produto = await _context.Produtos
+                .Where(p => p.ProdutoId == produtoId)
+                .Select(p => p.EstoqueAtual)
+                .FirstOrDefaultAsync();
+
+            // Verifica se o estoque é suficiente para a quantidade solicitada
+            return produto >= quantidadeSolicitada;
+        }
     }
 }

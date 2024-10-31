@@ -2,9 +2,6 @@
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations.Schema;
 using System.ComponentModel.DataAnnotations;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace Entities.Entidades
 {
@@ -14,14 +11,10 @@ namespace Entities.Entidades
         [Key]
         public int HistoricoId { get; set; }
 
-        [Required]
-        public int PedidoId { get; set; }
-
-        [Required]
-        public int UsuarioId { get; set; }
-
-        [Required]
-        public int ProdutoId { get; set; }
+        // Propriedades que agora aceitam valores nulos
+        public int? PedidoId { get; set; }
+        public int? UsuarioId { get; set; }
+        public int? ProdutoId { get; set; }
 
         [Required, MaxLength(100)]
         public string Acao { get; set; }
@@ -29,6 +22,7 @@ namespace Entities.Entidades
         [Required]
         public DateTime DataHora { get; set; }
 
+        // Relacionamentos com ForeignKey
         [ForeignKey("PedidoId")]
         public virtual Pedido Pedido { get; set; }
 
@@ -38,5 +32,4 @@ namespace Entities.Entidades
         [ForeignKey("ProdutoId")]
         public virtual Produto Produto { get; set; }
     }
-
 }

@@ -21,6 +21,7 @@ using Domain.Interfaces.IPedido;
 using Domain.Interfaces.IPedidoProduto;
 using Microsoft.OpenApi.Models;
 using System.Reflection;
+using Domain.Interfaces.IProduto;
 
 
 
@@ -49,6 +50,8 @@ builder.Services.AddScoped(typeof(InterfaceGeneric<>), typeof(RepositorioGeneric
 builder.Services.AddScoped(typeof(InterfaceGeneric<>), typeof(RepositorioGeneric<>));
 
 builder.Services.AddScoped<InterfaceUsuario, RepositorioUsuario>();
+
+builder.Services.AddScoped<InterfaceProduto, RepositorioProduto>();
 builder.Services.AddScoped<InterfaceCliente, RepositorioCliente>();
 builder.Services.AddScoped<InterfaceFornecedor, RepositorioFornecedor>();
 builder.Services.AddScoped<InterfaceHistoricoAcao, RepositorioHistoricoAcao>();

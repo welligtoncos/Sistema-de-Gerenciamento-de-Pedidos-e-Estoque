@@ -1,4 +1,5 @@
-﻿using Domain.Interfaces.IProduto;
+﻿using Domain.Interfaces.IHistoricoAcao;
+using Domain.Interfaces.IProduto;
 using Entities.Entidades;
 using Microsoft.AspNetCore.Mvc;
 using Swashbuckle.AspNetCore.Annotations;
@@ -13,30 +14,56 @@ namespace webApi.Controllers
     public class ProdutoController : ControllerBase
     {
         private readonly InterfaceProduto _interfaceProduto;
+        private readonly InterfaceHistoricoAcao _interfaceHistoricoAcao;
 
-        public ProdutoController(InterfaceProduto interfaceProduto)
+        public ProdutoController(InterfaceProduto interfaceProduto, InterfaceHistoricoAcao interfaceHistoricoAcao)
         {
-            _interfaceProduto = interfaceProduto;
+            _interfaceProduto = interfaceProduto; 
+            _interfaceHistoricoAcao = interfaceHistoricoAcao;
         }
 
         /// <summary>
         /// Adiciona um novo produto.
         /// </summary>
-        /// <param name="produto">Objeto do produto a ser adicionado.</param>
+        /// <param name="produtoDto">Objeto do produto a ser adicionado.</param>
         /// <returns>Confirmação de adição do produto.</returns>
         [HttpPost("Add")]
-        [SwaggerResponse(200, "Produto adicionado com sucesso.")]
+        [SwaggerResponse(200, "Produto adicionado com sucesso.", typeof(ProdutoDTO))]
         [SwaggerResponse(400, "Produto inválido.")]
         [SwaggerResponse(500, "Erro ao adicionar o produto.")]
-        public async Task<IActionResult> Add([FromBody] Produto produto)
+        public async Task<IActionResult> Add([FromBody] ProdutoDTO produtoDto)
         {
-            if (produto == null)
+            if (produtoDto == null)
                 return BadRequest("Produto inválido.");
 
             try
             {
+                var produto = new Produto
+                {
+                    FornecedorId = produtoDto.FornecedorId,
+                    Nome = produtoDto.Nome,
+                    Descricao = produtoDto.Descricao,
+                    Preco = produtoDto.Preco,
+                    EstoqueAtual = produtoDto.EstoqueAtual,
+                    EstoqueMinimo = produtoDto.EstoqueMinimo,
+                    Ativo = produtoDto.Ativo
+                };
+
                 await _interfaceProduto.Add(produto);
-                return Ok("Produto adicionado com sucesso.");
+                produtoDto.ProdutoId = produto.ProdutoId; // Atualiza o ID gerado 
+
+                // Registra a ação de adição no histórico
+                var historicoAcao = new HistoricoAcao
+                {
+                    ProdutoId = produto.ProdutoId,
+                    Acao = "Adição de Produto",
+                    DataHora = DateTime.Now,
+                    UsuarioId = null, // Ajuste conforme necessário para identificar o usuário
+                    PedidoId = null
+                };
+
+                await _interfaceHistoricoAcao.Add(historicoAcao); // Assegure-se de ter injetado o repositório de histórico
+                return Ok(produtoDto);
             }
             catch (Exception ex)
             {
@@ -47,19 +74,31 @@ namespace webApi.Controllers
         /// <summary>
         /// Atualiza um produto existente.
         /// </summary>
-        /// <param name="produto">Objeto do produto a ser atualizado.</param>
+        /// <param name="produtoDto">Objeto do produto a ser atualizado.</param>
         /// <returns>Confirmação de atualização do produto.</returns>
         [HttpPut("Update")]
         [SwaggerResponse(200, "Produto atualizado com sucesso.")]
         [SwaggerResponse(400, "Produto inválido.")]
         [SwaggerResponse(500, "Erro ao atualizar o produto.")]
-        public async Task<IActionResult> Update([FromBody] Produto produto)
+        public async Task<IActionResult> Update([FromBody] ProdutoDTO produtoDto)
         {
-            if (produto == null)
+            if (produtoDto == null)
                 return BadRequest("Produto inválido.");
 
             try
             {
+                var produto = new Produto
+                {
+                    ProdutoId = produtoDto.ProdutoId,
+                    FornecedorId = produtoDto.FornecedorId,
+                    Nome = produtoDto.Nome,
+                    Descricao = produtoDto.Descricao,
+                    Preco = produtoDto.Preco,
+                    EstoqueAtual = produtoDto.EstoqueAtual,
+                    EstoqueMinimo = produtoDto.EstoqueMinimo,
+                    Ativo = produtoDto.Ativo
+                };
+
                 await _interfaceProduto.Update(produto);
                 return Ok("Produto atualizado com sucesso.");
             }
@@ -101,7 +140,7 @@ namespace webApi.Controllers
         /// <param name="id">ID do produto.</param>
         /// <returns>Detalhes do produto.</returns>
         [HttpGet("GetByID/{id}")]
-        [SwaggerResponse(200, "Produto encontrado.", typeof(Produto))]
+        [SwaggerResponse(200, "Produto encontrado.", typeof(ProdutoDTO))]
         [SwaggerResponse(404, "Produto com o ID fornecido não encontrado.")]
         [SwaggerResponse(500, "Erro ao buscar produto.")]
         public async Task<IActionResult> GetByID(int id)
@@ -112,7 +151,19 @@ namespace webApi.Controllers
                 if (produto == null)
                     return NotFound("Produto não encontrado.");
 
-                return Ok(produto);
+                var produtoDto = new ProdutoDTO
+                {
+                    ProdutoId = produto.ProdutoId,
+                    FornecedorId = produto.FornecedorId,
+                    Nome = produto.Nome,
+                    Descricao = produto.Descricao,
+                    Preco = produto.Preco,
+                    EstoqueAtual = produto.EstoqueAtual,
+                    EstoqueMinimo = produto.EstoqueMinimo,
+                    Ativo = produto.Ativo
+                };
+
+                return Ok(produtoDto);
             }
             catch (Exception ex)
             {
@@ -125,19 +176,51 @@ namespace webApi.Controllers
         /// </summary>
         /// <returns>Lista de produtos.</returns>
         [HttpGet("List")]
-        [SwaggerResponse(200, "Produtos listados com sucesso.", typeof(List<Produto>))]
+        [SwaggerResponse(200, "Produtos listados com sucesso.", typeof(List<ProdutoDTO>))]
         [SwaggerResponse(500, "Erro ao listar produtos.")]
         public async Task<IActionResult> List()
         {
             try
             {
                 var produtos = await _interfaceProduto.List();
-                return Ok(produtos);
+                var produtosDto = new List<ProdutoDTO>();
+
+                foreach (var produto in produtos)
+                {
+                    produtosDto.Add(new ProdutoDTO
+                    {
+                        ProdutoId = produto.ProdutoId,
+                        FornecedorId = produto.FornecedorId,
+                        Nome = produto.Nome,
+                        Descricao = produto.Descricao,
+                        Preco = produto.Preco,
+                        EstoqueAtual = produto.EstoqueAtual,
+                        EstoqueMinimo = produto.EstoqueMinimo,
+                        Ativo = produto.Ativo
+                    });
+                }
+
+                return Ok(produtosDto);
             }
             catch (Exception ex)
             {
                 return StatusCode(500, $"Erro ao listar os produtos: {ex.Message}");
             }
         }
+    }
+
+    /// <summary>
+    /// DTO para representar dados do produto de forma simplificada.
+    /// </summary>
+    public class ProdutoDTO
+    {
+        public int ProdutoId { get; set; }
+        public int FornecedorId { get; set; }
+        public string Nome { get; set; }
+        public string Descricao { get; set; }
+        public decimal Preco { get; set; }
+        public int EstoqueAtual { get; set; }
+        public int EstoqueMinimo { get; set; }
+        public bool Ativo { get; set; }
     }
 }

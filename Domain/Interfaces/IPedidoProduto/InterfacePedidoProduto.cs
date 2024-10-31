@@ -9,6 +9,6 @@ using System.Threading.Tasks;
 namespace Domain.Interfaces.IPedidoProduto
 {
     public interface InterfacePedidoProduto : InterfaceGeneric<PedidoProduto>
-    {
+    { 
     }
 }
