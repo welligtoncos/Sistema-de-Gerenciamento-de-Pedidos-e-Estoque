@@ -32,7 +32,7 @@ namespace webApi.Controllers
         /// <returns>Confirmação de adição do pedido.</returns>
         [HttpPost("Add")]
         [SwaggerResponse(200, "Pedido adicionado com sucesso.", typeof(PedidoDTO))]
-        [SwaggerResponse(400, "Pedido inválido ou estoque insuficiente.")]
+        [SwaggerResponse(400, "Pedido inválido.")]
         [SwaggerResponse(500, "Erro ao adicionar o pedido.")]
         public async Task<IActionResult> Add([FromBody] PedidoDTO pedidoDto)
         {
@@ -41,38 +41,19 @@ namespace webApi.Controllers
 
             try
             {
-                // Verifica o estoque para cada produto no pedido
-                foreach (var item in pedidoDto.PedidoProdutos)
-                {
-                    var estoqueSuficiente = await _interfaceProduto.VerificarEstoqueDisponivel(item.ProdutoId, item.Quantidade);
-                    if (!estoqueSuficiente)
-                    {
-                        return BadRequest($"Estoque insuficiente para o produto com ID {item.ProdutoId}.");
-                    }
-                }
-
-                // Calcula o total do pedido com base nos itens
-                pedidoDto.TotalPedido = pedidoDto.PedidoProdutos.Sum(i => i.Quantidade * i.PrecoUnitario);
-
                 // Mapeia os dados do DTO para a entidade Pedido
                 var pedido = new Pedido
                 {
                     ClienteId = pedidoDto.ClienteId,
                     DataPedido = pedidoDto.DataPedido,
                     TotalPedido = pedidoDto.TotalPedido,
-                    Status = pedidoDto.Status,
-                    PedidoProdutos = pedidoDto.PedidoProdutos.Select(i => new PedidoProduto
-                    {
-                        ProdutoId = i.ProdutoId,
-                        Quantidade = i.Quantidade,
-                        PrecoUnitario = i.PrecoUnitario,
-                        TotalItem = i.TotalItem
-                    }).ToList()
+                    Status = pedidoDto.Status
                 };
 
-                // Adiciona o pedido ao banco de dados
                 await _interfacePedido.Add(pedido);
-                pedidoDto.PedidoId = pedido.PedidoId; // Atualiza o ID gerado
+
+                // Atualiza o DTO com o ID gerado
+                pedidoDto.PedidoId = pedido.PedidoId;
 
                 // Registra a ação de adição no histórico
                 var historicoAcao = new HistoricoAcao
@@ -81,8 +62,11 @@ namespace webApi.Controllers
                     Acao = "Criação de Pedido",
                     DataHora = DateTime.Now,
                     UsuarioId = null, // Substitua pelo ID do usuário atual, se disponível
-                    ProdutoId = null  // Pode ser nulo, pois se refere ao pedido como um todo
+                    ProdutoId = null  // Pedido pode não ter um produto específico aqui
                 };
+                 
+
+                //verificar pedido tem no estoque
 
                 await _interfaceHistoricoAcao.Add(historicoAcao);
 
@@ -93,7 +77,6 @@ namespace webApi.Controllers
                 return StatusCode(500, $"Erro ao adicionar o pedido: {ex.Message}");
             }
         }
-
 
 
         /// <summary>
@@ -225,6 +208,9 @@ namespace webApi.Controllers
         }
     }
 
+    /// <summary>
+    /// DTO para representar dados do pedido de forma simplificada.
+    /// </summary>
     public class PedidoDTO
     {
         public int PedidoId { get; set; }
@@ -232,18 +218,5 @@ namespace webApi.Controllers
         public DateTime DataPedido { get; set; }
         public decimal TotalPedido { get; set; }
         public string Status { get; set; }
-
-        // Lista de produtos incluídos no pedido, correspondendo a PedidoProdutos na entidade Pedido
-        public List<PedidoProdutoDTO> PedidoProdutos { get; set; } = new List<PedidoProdutoDTO>();
     }
-
-    public class PedidoProdutoDTO
-    {
-        public int ProdutoId { get; set; }           // ID do produto no pedido
-        public int Quantidade { get; set; }          // Quantidade solicitada do produto
-        public decimal PrecoUnitario { get; set; }   // Preço unitário do produto
-        public decimal TotalItem { get; set; }       // Total para este item (Quantidade * PrecoUnitario)
-    }
-
-
 }
